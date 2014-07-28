@@ -1,33 +1,63 @@
 package main
 
 import (
-	"flag"
-	git "github.com/libgit2/git2go"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"net/url"
 	"os"
 )
-
-// refname="$1"
-// oldrev="$2"
-// newrev="$3"
-
-// get files for newrev
-// find yaml files
-// parse yaml files
 
 // exit code = 0 if ok
 // exit code > 0 if failed
 // ... print messages to stdout
 
+type ResponsePayload struct {
+	Message string
+	Code    int
+}
+
 func main() {
-	refname := flag.Arg(1)
-	oldrev := flag.Arg(2)
-	newrev := flag.Arg(3)
+	if len(os.Args) != 4 {
+		log.Fatalln("wrong number of arguments")
+	}
 
-	_ = refname
-	_ = oldrev
-	_ = newrev
+	refname := string(os.Args[1])
+	oldrev := string(os.Args[2])
+	newrev := string(os.Args[3])
 
-	git.OpenRepository("/Users/mattes/Developer/developermail/gitd/tmprepos/peter/123")
+	var u url.URL
+	u.Scheme = "http"
+	u.Host = "api:80"
 
-	os.Exit(0)
+	q := url.Values{}
+	q.Set("refname", refname)
+	q.Set("oldrev", oldrev)
+	q.Set("newrev", newrev)
+	u.RawQuery = q.Encode()
+
+	res, err := http.Get(u.String())
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	jsonResp, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	var rp ResponsePayload
+	err = json.Unmarshal(jsonResp, &rp)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	fmt.Println(rp.Message)
+	os.Exit(rp.Code)
 }
